@@ -40,6 +40,10 @@ export interface Program {
   duration_weeks: number | null;
   difficulty_level: 'beginner' | 'intermediate' | 'advanced';
   is_active: boolean;
+  goals: string[]; // Fitness goals (strength, hypertrophy, endurance)
+  days_per_week: number | null;
+  is_template: boolean; // Pre-built template program
+  template_category: string | null; // Category (push-pull-legs, full-body, etc.)
   created_at: string; // ISO timestamp
   updated_at: string; // ISO timestamp
 }
@@ -55,6 +59,7 @@ export interface Workout {
   description: string | null;
   day_of_week: number | null; // 0-6 (Sunday-Saturday)
   order_index: number; // Order within program
+  workout_type: 'strength' | 'hypertrophy' | 'mixed' | 'deload'; // A day (strength) vs B day (hypertrophy)
   created_at: string; // ISO timestamp
   updated_at: string; // ISO timestamp
 }
@@ -79,6 +84,15 @@ export interface ExerciseLibrary {
 }
 
 /**
+ * Warm-up Set Configuration
+ */
+export interface WarmupSet {
+  sets: number;
+  reps: number;
+  intensity: number; // Percentage of working weight
+}
+
+/**
  * Exercise
  * Exercise definition with metadata (user-specific instances)
  */
@@ -97,6 +111,8 @@ export interface Exercise {
   target_reps: number | null;
   target_weight_kg: number | null;
   rest_seconds: number | null;
+  intensity_percentage: number | null; // % of 1RM (e.g., 85.00)
+  warmup_protocol: WarmupSet[]; // Structured warm-up sets
   notes: string | null;
   created_at: string; // ISO timestamp
   updated_at: string; // ISO timestamp
