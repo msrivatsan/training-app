@@ -60,12 +60,32 @@ export interface Workout {
 }
 
 /**
+ * Exercise Library
+ * Master library of all available exercises (global, not user-specific)
+ */
+export interface ExerciseLibrary {
+  id: string; // UUID
+  name: string;
+  description: string | null;
+  primary_muscle_group: string;
+  secondary_muscle_groups: string[];
+  equipment_needed: string[];
+  difficulty_level: 'beginner' | 'intermediate' | 'advanced';
+  video_url: string | null;
+  is_compound: boolean;
+  is_priority: boolean;
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+/**
  * Exercise
- * Exercise definition with metadata
+ * Exercise definition with metadata (user-specific instances)
  */
 export interface Exercise {
   id: string; // UUID
   workout_id: string; // UUID reference to workouts
+  exercise_library_id: string | null; // UUID reference to exercise_library
   name: string;
   description: string | null;
   muscle_groups: string[]; // e.g., ['chest', 'triceps']
@@ -343,6 +363,35 @@ export interface MuscleGroupVolume {
   percentage: number;
 }
 
+/**
+ * Exercise Analytics
+ * Analytics for a specific exercise from the library
+ */
+export interface ExerciseAnalytics {
+  exercise_id: string;
+  exercise_name: string;
+  total_sessions: number; // How many times performed
+  total_volume_kg: number; // Total volume across all sessions
+  average_volume_kg: number; // Average volume per session
+  total_sets: number;
+  personal_record: PersonalRecord | null;
+  last_performed: string | null; // ISO date string
+  frequency_per_week: number;
+  volume_history: {
+    date: string;
+    volume_kg: number;
+    sets: number;
+  }[];
+}
+
+/**
+ * Exercise Library with Analytics
+ * Exercise library entry with usage analytics
+ */
+export interface ExerciseLibraryWithAnalytics extends ExerciseLibrary {
+  analytics?: ExerciseAnalytics;
+}
+
 // ============================================================================
 // API Response Types
 // ============================================================================
@@ -378,6 +427,7 @@ export interface PaginatedResponse<T> {
 export type UserProfileInsert = Omit<UserProfile, 'id' | 'created_at' | 'updated_at'>;
 export type ProgramInsert = Omit<Program, 'id' | 'created_at' | 'updated_at'>;
 export type WorkoutInsert = Omit<Workout, 'id' | 'created_at' | 'updated_at'>;
+export type ExerciseLibraryInsert = Omit<ExerciseLibrary, 'id' | 'created_at' | 'updated_at'>;
 export type ExerciseInsert = Omit<Exercise, 'id' | 'created_at' | 'updated_at'>;
 export type WorkoutSessionInsert = Omit<WorkoutSession, 'id' | 'created_at' | 'updated_at'>;
 export type SetInsert = Omit<Set, 'id' | 'created_at' | 'updated_at'>;

@@ -12,7 +12,7 @@ import type { NextRequest } from 'next/server';
 /**
  * Protected routes that require authentication
  */
-const protectedRoutes = ['/dashboard', '/workouts', '/programs', '/progress', '/profile'];
+const protectedRoutes = ['/dashboard', '/workouts', '/programs', '/progress', '/profile', '/exercises'];
 
 /**
  * Auth routes that should redirect to dashboard if already authenticated

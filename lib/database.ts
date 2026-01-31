@@ -10,6 +10,8 @@ import type {
   Program,
   Workout,
   Exercise,
+  ExerciseLibrary,
+  ExerciseAnalytics,
   WorkoutSession,
   Set,
   Achievement,
@@ -164,6 +166,229 @@ export const workouts = {
     }
 
     return data;
+  },
+};
+
+/**
+ * Exercise Library Operations
+ */
+export const exerciseLibrary = {
+  /**
+   * Get all exercises from library
+   */
+  async list(): Promise<ExerciseLibrary[]> {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('exercise_library')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching exercise library:', error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  /**
+   * Search exercises by name, muscle group, or equipment
+   */
+  async search(query: string): Promise<ExerciseLibrary[]> {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('exercise_library')
+      .select('*')
+      .or(`name.ilike.%${query}%,primary_muscle_group.ilike.%${query}%`)
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('Error searching exercise library:', error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  /**
+   * Filter exercises by criteria
+   */
+  async filter(filters: {
+    muscle_group?: string;
+    equipment?: string;
+    difficulty?: 'beginner' | 'intermediate' | 'advanced';
+    is_compound?: boolean;
+    is_priority?: boolean;
+  }): Promise<ExerciseLibrary[]> {
+    const supabase = createClient();
+    let query = supabase.from('exercise_library').select('*');
+
+    if (filters.muscle_group) {
+      query = query.or(`primary_muscle_group.eq.${filters.muscle_group},secondary_muscle_groups.cs.{${filters.muscle_group}}`);
+    }
+
+    if (filters.equipment) {
+      query = query.contains('equipment_needed', [filters.equipment]);
+    }
+
+    if (filters.difficulty) {
+      query = query.eq('difficulty_level', filters.difficulty);
+    }
+
+    if (filters.is_compound !== undefined) {
+      query = query.eq('is_compound', filters.is_compound);
+    }
+
+    if (filters.is_priority !== undefined) {
+      query = query.eq('is_priority', filters.is_priority);
+    }
+
+    query = query.order('name', { ascending: true });
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error filtering exercise library:', error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  /**
+   * Get exercise by ID
+   */
+  async getById(exerciseId: string): Promise<ExerciseLibrary | null> {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('exercise_library')
+      .select('*')
+      .eq('id', exerciseId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching exercise:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  /**
+   * Get analytics for an exercise
+   */
+  async getAnalytics(exerciseId: string, userId: string): Promise<ExerciseAnalytics | null> {
+    const supabase = createClient();
+
+    // Get all sets for this exercise by the user
+    const { data: setsData, error: setsError } = await supabase
+      .from('sets')
+      .select(`
+        *,
+        session:workout_sessions!inner(user_id, started_at, status),
+        exercise:exercises!inner(exercise_library_id, name)
+      `)
+      .eq('session.user_id', userId)
+      .eq('session.status', 'completed')
+      .eq('exercise.exercise_library_id', exerciseId)
+      .order('session.started_at', { ascending: false });
+
+    if (setsError) {
+      console.error('Error fetching exercise analytics:', setsError);
+      return null;
+    }
+
+    if (!setsData || setsData.length === 0) {
+      return null;
+    }
+
+    // Calculate analytics
+    const totalSets = setsData.length;
+    const totalVolume = setsData.reduce((sum, set) => sum + (set.reps * set.weight_kg), 0);
+    const sessions = new Set(setsData.map((set: any) => set.session_id)).size;
+    const averageVolume = sessions > 0 ? totalVolume / sessions : 0;
+
+    // Find personal record (highest weight × reps)
+    let personalRecord = null;
+    let maxScore = 0;
+    for (const set of setsData) {
+      const score = set.weight_kg * set.reps;
+      if (score > maxScore) {
+        maxScore = score;
+        personalRecord = {
+          exercise_id: exerciseId,
+          exercise_name: (set as any).exercise.name,
+          weight_kg: set.weight_kg,
+          reps: set.reps,
+          date: (set as any).session.started_at,
+          one_rep_max: set.weight_kg * (1 + set.reps / 30), // Epley formula
+        };
+      }
+    }
+
+    // Calculate frequency (sessions per week)
+    const firstSession = new Date(setsData[setsData.length - 1]?.session?.started_at || Date.now());
+    const lastSession = new Date(setsData[0]?.session?.started_at || Date.now());
+    const weeksBetween = Math.max(1, (lastSession.getTime() - firstSession.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    const frequencyPerWeek = sessions / weeksBetween;
+
+    // Build volume history (last 10 sessions)
+    const volumeHistory: { date: string; volume_kg: number; sets: number }[] = [];
+    const sessionMap = new Map();
+
+    for (const set of setsData) {
+      const sessionId = set.session_id;
+      const sessionDate = (set as any).session.started_at;
+
+      if (!sessionMap.has(sessionId)) {
+        sessionMap.set(sessionId, {
+          date: sessionDate,
+          volume_kg: 0,
+          sets: 0,
+        });
+      }
+
+      const sessionData = sessionMap.get(sessionId);
+      sessionData.volume_kg += set.reps * set.weight_kg;
+      sessionData.sets += 1;
+    }
+
+    Array.from(sessionMap.values())
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 10)
+      .forEach(session => volumeHistory.push(session));
+
+    return {
+      exercise_id: exerciseId,
+      exercise_name: (setsData[0] as any).exercise.name,
+      total_sessions: sessions,
+      total_volume_kg: totalVolume,
+      average_volume_kg: averageVolume,
+      total_sets: totalSets,
+      personal_record: personalRecord,
+      last_performed: setsData[0]?.session?.started_at || null,
+      frequency_per_week: frequencyPerWeek,
+      volume_history: volumeHistory,
+    };
+  },
+
+  /**
+   * Get priority exercises (big 4 lifts)
+   */
+  async getPriority(): Promise<ExerciseLibrary[]> {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('exercise_library')
+      .select('*')
+      .eq('is_priority', true)
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching priority exercises:', error);
+      return [];
+    }
+
+    return data || [];
   },
 };
 
