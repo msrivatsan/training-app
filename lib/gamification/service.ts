@@ -33,11 +33,7 @@ export async function getUserLevel(
     .single();
 
   if (error && error.code !== 'PGRST116') {
-    console.error('Error fetching user level:', {
-      code: error.code,
-      message: error.message,
-      details: error.details,
-    });
+    console.error('Error fetching user level:', error);
     return null;
   }
 
@@ -56,11 +52,7 @@ export async function getUserLevel(
       .single();
 
     if (insertError) {
-      console.error('Error creating user level:', {
-        code: insertError.code,
-        message: insertError.message,
-        details: insertError.details,
-      });
+      console.error('Error creating user level:', insertError);
       return null;
     }
 
@@ -251,11 +243,7 @@ export async function getWorkoutStreak(
     .single();
 
   if (error && error.code !== 'PGRST116') {
-    console.error('Error fetching workout streak:', {
-      code: error.code,
-      message: error.message,
-      details: error.details,
-    });
+    console.error('Error fetching workout streak:', error);
     return null;
   }
 
@@ -273,11 +261,7 @@ export async function getWorkoutStreak(
       .single();
 
     if (insertError) {
-      console.error('Error creating workout streak:', {
-        code: insertError.code,
-        message: insertError.message,
-        details: insertError.details,
-      });
+      console.error('Error creating workout streak:', insertError);
       return null;
     }
 
@@ -320,11 +304,7 @@ export async function getLatestStrengthScore(
     .single();
 
   if (error && error.code !== 'PGRST116') {
-    console.error('Error fetching strength score:', {
-      code: error.code,
-      message: error.message,
-      details: error.details,
-    });
+    console.error('Error fetching strength score:', error);
     return null;
   }
 
