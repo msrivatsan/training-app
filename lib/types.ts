@@ -1623,3 +1623,219 @@ export interface NotificationAnalytics {
     };
   };
 }
+
+// ============================================================================
+// USER PREFERENCES AND SETTINGS
+// ============================================================================
+
+/**
+ * Unit System Preferences
+ */
+export type UnitSystem = 'metric' | 'imperial';
+export type WeightUnit = 'kg' | 'lbs';
+export type DistanceUnit = 'cm' | 'inches';
+
+/**
+ * User Preferences
+ * Training and workout preferences
+ */
+export interface UserPreferences {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+
+  // Unit preferences
+  unit_system: UnitSystem;
+  weight_unit: WeightUnit;
+  distance_unit: DistanceUnit;
+
+  // Rest timer preferences
+  rest_timer_auto_start: boolean;
+  default_rest_compound: number; // seconds
+  default_rest_isolation: number; // seconds
+  default_rest_cardio: number; // seconds
+
+  // Display preferences
+  show_warmup_sets: boolean;
+  enable_rpe_tracking: boolean;
+  show_plate_calculator: boolean;
+
+  // Available equipment
+  available_plate_weights: number[]; // e.g., [2.5, 5, 10, 15, 20, 25]
+  barbell_weight_kg: number; // 20kg standard, 15kg women's, custom
+
+  // Workout preferences
+  auto_start_rest_timer: boolean;
+  vibrate_on_timer_end: boolean;
+  play_sound_on_timer_end: boolean;
+
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+/**
+ * Theme Preferences
+ * Visual theme and appearance settings
+ */
+export interface ThemePreferences {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+
+  // Theme selection
+  theme_mode: 'light' | 'dark' | 'auto';
+  theme_name: string; // 'default', 'ocean', 'sunset', etc.
+
+  // Custom colors
+  accent_color: string; // Hex color
+  custom_colors: Record<string, string> | null;
+
+  // Font preferences
+  font_size: 'small' | 'medium' | 'large';
+  use_dyslexic_font: boolean;
+
+  // Accessibility
+  high_contrast: boolean;
+  reduce_animations: boolean;
+
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+/**
+ * Available Theme
+ * Predefined themes that can be unlocked
+ */
+export interface AvailableTheme {
+  id: string;
+  name: string;
+  display_name: string;
+  description: string;
+  preview_url: string;
+  colors: {
+    primary: string;
+    secondary: string;
+    accent: string;
+    background: string;
+  };
+  unlock_requirement: 'default' | 'level' | 'achievement' | 'purchase';
+  unlock_value?: number; // Level number or achievement ID
+  achievement_id?: string;
+  is_premium: boolean;
+}
+
+/**
+ * Onboarding Progress
+ * Track user's onboarding completion
+ */
+export interface OnboardingProgress {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+
+  // Steps completed
+  welcome_completed: boolean;
+  profile_setup_completed: boolean;
+  goals_setup_completed: boolean;
+  program_selection_completed: boolean;
+  equipment_setup_completed: boolean;
+  notifications_setup_completed: boolean;
+  tutorial_completed: boolean;
+
+  // Overall progress
+  is_completed: boolean;
+  completed_at: string | null; // ISO timestamp
+
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+/**
+ * Data Export Request
+ * Track data export requests for GDPR compliance
+ */
+export interface DataExportRequest {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+
+  // Export details
+  export_type: 'full' | 'workouts' | 'nutrition' | 'body_stats';
+  format: 'csv' | 'json' | 'zip';
+
+  // Status
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  download_url: string | null;
+  expires_at: string | null; // ISO timestamp
+
+  // Metadata
+  file_size_bytes: number | null;
+  error_message: string | null;
+
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+/**
+ * Account Deletion Request
+ * Track account deletion requests (GDPR right to be forgotten)
+ */
+export interface AccountDeletionRequest {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+
+  // Verification
+  confirmation_token: string;
+  confirmed: boolean;
+  confirmed_at: string | null; // ISO timestamp
+
+  // Scheduling
+  scheduled_deletion_date: string; // ISO date string (30 days after request)
+
+  // Status
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+
+  // Metadata
+  reason: string | null;
+  feedback: string | null;
+
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+/**
+ * User Training Age
+ * Track when user started training
+ */
+export interface TrainingAge {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+
+  // Training start date
+  training_start_date: string; // ISO date string
+
+  // Milestones
+  years_training: number;
+  months_training: number;
+
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+// ============================================================================
+// Settings Insert/Update Types
+// ============================================================================
+
+export type UserPreferencesInsert = Omit<UserPreferences, 'id' | 'created_at' | 'updated_at'>;
+export type UserPreferencesUpdate = Partial<Omit<UserPreferences, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
+
+export type ThemePreferencesInsert = Omit<ThemePreferences, 'id' | 'created_at' | 'updated_at'>;
+export type ThemePreferencesUpdate = Partial<Omit<ThemePreferences, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
+
+export type OnboardingProgressInsert = Omit<OnboardingProgress, 'id' | 'created_at' | 'updated_at'>;
+export type OnboardingProgressUpdate = Partial<Omit<OnboardingProgress, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
+
+export type DataExportRequestInsert = Omit<DataExportRequest, 'id' | 'created_at' | 'updated_at'>;
+export type DataExportRequestUpdate = Partial<Omit<DataExportRequest, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
+
+export type AccountDeletionRequestInsert = Omit<AccountDeletionRequest, 'id' | 'created_at' | 'updated_at'>;
+export type AccountDeletionRequestUpdate = Partial<Omit<AccountDeletionRequest, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
+
+export type TrainingAgeInsert = Omit<TrainingAge, 'id' | 'created_at' | 'updated_at'>;
+export type TrainingAgeUpdate = Partial<Omit<TrainingAge, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;

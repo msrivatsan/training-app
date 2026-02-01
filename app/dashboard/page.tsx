@@ -9,7 +9,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
-import { Dumbbell, TrendingUp, Calendar, Award, User } from 'lucide-react';
+import { Dumbbell, TrendingUp, Calendar, Award, User, Settings } from 'lucide-react';
 import LevelBadge from '@/components/LevelBadge';
 import { getUserLevel } from '@/lib/gamification/service';
 import { UserLevel } from '@/lib/gamification/types';
@@ -72,6 +72,15 @@ export default function DashboardPage() {
                 title="View Profile"
               >
                 <User className="w-6 h-6" />
+              </button>
+
+              {/* Settings Button */}
+              <button
+                onClick={() => router.push('/settings')}
+                className="p-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                title="Settings"
+              >
+                <Settings className="w-6 h-6" />
               </button>
 
               {/* Sign Out Button */}
