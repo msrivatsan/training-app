@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { ExerciseLibrary as ExerciseLibraryType } from '@/lib/types';
+import { ExerciseLibrary as ExerciseLibraryType, ExerciseLibraryWithMovementPattern, MovementPatternType } from '@/lib/types';
 import { exerciseLibrary } from '@/lib/database';
 import ExerciseCard from './ExerciseCard';
+import { getMovementPatternLabel } from '@/lib/exerciseSwap';
 import {
   Search,
   Grid3x3,
@@ -34,6 +35,7 @@ export default function ExerciseLibrary({
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string>('');
   const [selectedEquipment, setSelectedEquipment] = useState<string>('');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('');
+  const [selectedMovementPattern, setSelectedMovementPattern] = useState<string>('');
   const [showCompoundOnly, setShowCompoundOnly] = useState(false);
   const [showPriorityOnly, setShowPriorityOnly] = useState(false);
 
@@ -109,6 +111,14 @@ export default function ExerciseLibrary({
         }
       }
 
+      // Movement pattern filter
+      if (selectedMovementPattern) {
+        const exerciseWithPattern = exercise as ExerciseLibraryWithMovementPattern;
+        if (exerciseWithPattern.movement_pattern !== selectedMovementPattern) {
+          return false;
+        }
+      }
+
       // Compound filter
       if (showCompoundOnly && !exercise.is_compound) {
         return false;
@@ -121,18 +131,19 @@ export default function ExerciseLibrary({
 
       return true;
     });
-  }, [exercises, searchQuery, selectedMuscleGroup, selectedEquipment, selectedDifficulty, showCompoundOnly, showPriorityOnly]);
+  }, [exercises, searchQuery, selectedMuscleGroup, selectedEquipment, selectedDifficulty, selectedMovementPattern, showCompoundOnly, showPriorityOnly]);
 
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedMuscleGroup('');
     setSelectedEquipment('');
     setSelectedDifficulty('');
+    setSelectedMovementPattern('');
     setShowCompoundOnly(false);
     setShowPriorityOnly(false);
   };
 
-  const hasActiveFilters = searchQuery || selectedMuscleGroup || selectedEquipment || selectedDifficulty || showCompoundOnly || showPriorityOnly;
+  const hasActiveFilters = searchQuery || selectedMuscleGroup || selectedEquipment || selectedDifficulty || selectedMovementPattern || showCompoundOnly || showPriorityOnly;
 
   return (
     <div className="w-full">
@@ -220,7 +231,7 @@ export default function ExerciseLibrary({
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* Muscle Group */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -237,6 +248,35 @@ export default function ExerciseLibrary({
                     {group}
                   </option>
                 ))}
+              </select>
+            </div>
+
+            {/* Movement Pattern */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Movement Pattern
+              </label>
+              <select
+                value={selectedMovementPattern}
+                onChange={(e) => setSelectedMovementPattern(e.target.value)}
+                className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="">All</option>
+                <option value="horizontal_push">Horizontal Push</option>
+                <option value="vertical_push">Vertical Push</option>
+                <option value="horizontal_pull">Horizontal Pull</option>
+                <option value="vertical_pull">Vertical Pull</option>
+                <option value="squat_pattern">Squat Pattern</option>
+                <option value="hinge_pattern">Hinge Pattern</option>
+                <option value="lunge_pattern">Lunge Pattern</option>
+                <option value="isolation_upper">Upper Isolation</option>
+                <option value="isolation_lower">Lower Isolation</option>
+                <option value="core_rotation">Core Rotation</option>
+                <option value="core_stability">Core Stability</option>
+                <option value="core_flexion">Core Flexion</option>
+                <option value="carry">Loaded Carry</option>
+                <option value="explosive">Explosive</option>
+                <option value="olympic">Olympic Lift</option>
               </select>
             </div>
 
