@@ -690,3 +690,483 @@ export interface GeneratedPeriodizationPlan {
   description: string;
   recommended_for: string[];
 }
+
+// ============================================================================
+// NUTRITION TRACKING SYSTEM
+// ============================================================================
+
+/**
+ * Nutrition Goals
+ * User's nutrition targets and macro calculations
+ */
+export interface NutritionGoal {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+
+  // Goal settings
+  goal_type: 'cut' | 'maintain' | 'bulk';
+  activity_level: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
+
+  // User stats for calculation
+  current_weight_kg: number;
+  target_weight_kg: number | null;
+  height_cm: number;
+  age: number;
+  gender: 'male' | 'female' | 'other';
+
+  // Calculated targets
+  daily_calories: number;
+  daily_protein_g: number;
+  daily_carbs_g: number;
+  daily_fats_g: number;
+  daily_water_ml: number;
+
+  // Tracking settings
+  is_active: boolean;
+  auto_adjust: boolean;
+
+  // Metadata
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+/**
+ * Food Database
+ * Local food database for quick search and logging
+ */
+export interface Food {
+  id: string; // UUID
+
+  // Food identification
+  name: string;
+  brand: string | null;
+  barcode: string | null;
+
+  // Nutritional info per 100g/100ml
+  calories_per_100g: number;
+  protein_per_100g: number;
+  carbs_per_100g: number;
+  fats_per_100g: number;
+  fiber_per_100g: number;
+  sugar_per_100g: number;
+  sodium_mg_per_100g: number;
+
+  // Serving info
+  default_serving_size_g: number;
+  serving_unit: string; // g, ml, cup, tbsp, etc.
+
+  // Categorization
+  category: string | null; // protein, carb, fat, vegetable, fruit, snack, beverage
+  tags: string[]; // vegan, high-protein, low-carb, etc.
+
+  // Source tracking
+  source: string; // user, openfoodfacts, usda, custom
+  user_id: string | null; // NULL for global foods
+  is_verified: boolean;
+
+  // Metadata
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+/**
+ * Meal Log
+ * Daily meal logging
+ */
+export interface MealLog {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+
+  // Meal info
+  date: string; // ISO date string
+  meal_type: 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'pre_workout' | 'post_workout';
+  meal_name: string | null;
+
+  // Time tracking
+  logged_at: string; // ISO timestamp
+
+  // Quick totals (denormalized)
+  total_calories: number;
+  total_protein: number;
+  total_carbs: number;
+  total_fats: number;
+
+  // Metadata
+  notes: string | null;
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+/**
+ * Meal Log Item
+ * Individual food item within a meal
+ */
+export interface MealLogItem {
+  id: string; // UUID
+  meal_log_id: string; // UUID reference to meal_logs
+  food_id: string; // UUID reference to foods
+
+  // Serving info
+  serving_size_g: number;
+  servings: number; // Multiplier: 1.5 servings, 2 servings, etc.
+
+  // Calculated macros (for this specific serving)
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+
+  // Metadata
+  created_at: string; // ISO timestamp
+}
+
+/**
+ * Meal Template
+ * Saved meal templates for quick logging
+ */
+export interface MealTemplate {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+
+  // Template info
+  name: string;
+  description: string | null;
+  meal_type: 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'pre_workout' | 'post_workout' | null;
+
+  // Quick totals
+  total_calories: number;
+  total_protein: number;
+  total_carbs: number;
+  total_fats: number;
+
+  // Usage tracking
+  use_count: number;
+  last_used_at: string | null; // ISO timestamp
+
+  // Metadata
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+/**
+ * Meal Template Item
+ * Foods within a meal template
+ */
+export interface MealTemplateItem {
+  id: string; // UUID
+  template_id: string; // UUID reference to meal_templates
+  food_id: string; // UUID reference to foods
+
+  // Serving info
+  serving_size_g: number;
+  servings: number;
+
+  // Order for display
+  order_index: number;
+
+  // Metadata
+  created_at: string; // ISO timestamp
+}
+
+/**
+ * Water Log
+ * Daily water intake tracking
+ */
+export interface WaterLog {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+
+  // Tracking
+  date: string; // ISO date string
+  amount_ml: number;
+
+  // Metadata
+  logged_at: string; // ISO timestamp
+}
+
+/**
+ * Daily Nutrition Summary
+ * Aggregated daily stats for performance
+ */
+export interface DailyNutritionSummary {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+  date: string; // ISO date string
+
+  // Totals
+  total_calories: number;
+  total_protein: number;
+  total_carbs: number;
+  total_fats: number;
+  total_water_ml: number;
+
+  // Goals (snapshot for historical accuracy)
+  goal_calories: number | null;
+  goal_protein: number | null;
+  goal_carbs: number | null;
+  goal_fats: number | null;
+  goal_water_ml: number | null;
+
+  // Compliance
+  hit_protein_target: boolean;
+  hit_calorie_target: boolean;
+  hit_water_target: boolean;
+
+  // Meal breakdown
+  meals_logged: number;
+
+  // Metadata
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+/**
+ * Recent Food
+ * Track recently used foods for quick-add
+ */
+export interface RecentFood {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+  food_id: string; // UUID reference to foods
+
+  // Usage tracking
+  last_used_at: string; // ISO timestamp
+  use_count: number;
+}
+
+/**
+ * Nutrition Achievement
+ * Nutrition-specific milestones
+ */
+export interface NutritionAchievement {
+  id: string; // UUID
+
+  // Achievement info
+  title: string;
+  description: string;
+  icon: string;
+  category: string;
+  tier: 'bronze' | 'silver' | 'gold' | 'platinum' | 'legendary';
+
+  // Unlock criteria
+  requirement_type: string; // protein_streak, calorie_accuracy, water_streak, etc.
+  requirement_value: number;
+
+  // Rewards
+  xp_reward: number;
+
+  // Visibility
+  is_secret: boolean;
+
+  created_at: string; // ISO timestamp
+}
+
+/**
+ * User Nutrition Achievement Progress
+ * User progress towards nutrition achievements
+ */
+export interface UserNutritionAchievementProgress {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+  achievement_id: string; // UUID reference to nutrition_achievements
+
+  // Progress tracking
+  current_progress: number;
+  is_unlocked: boolean;
+  unlocked_at: string | null; // ISO timestamp
+
+  // Metadata
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+// ============================================================================
+// Nutrition Extended Types
+// ============================================================================
+
+/**
+ * Meal Log with Items
+ * Extended meal log with food items
+ */
+export interface MealLogWithItems extends MealLog {
+  items?: MealLogItemWithFood[];
+}
+
+/**
+ * Meal Log Item with Food
+ * Extended meal log item with food details
+ */
+export interface MealLogItemWithFood extends MealLogItem {
+  food?: Food;
+}
+
+/**
+ * Meal Template with Items
+ * Extended meal template with food items
+ */
+export interface MealTemplateWithItems extends MealTemplate {
+  items?: MealTemplateItemWithFood[];
+}
+
+/**
+ * Meal Template Item with Food
+ * Extended meal template item with food details
+ */
+export interface MealTemplateItemWithFood extends MealTemplateItem {
+  food?: Food;
+}
+
+/**
+ * Daily Nutrition with Goal
+ * Extended daily summary with active nutrition goal
+ */
+export interface DailyNutritionWithGoal extends DailyNutritionSummary {
+  goal?: NutritionGoal;
+}
+
+/**
+ * Recent Food with Details
+ * Extended recent food with food details
+ */
+export interface RecentFoodWithDetails extends RecentFood {
+  food?: Food;
+}
+
+/**
+ * Nutrition Achievement with Progress
+ * Extended achievement with user progress
+ */
+export interface NutritionAchievementWithProgress extends NutritionAchievement {
+  progress?: UserNutritionAchievementProgress;
+}
+
+// ============================================================================
+// Nutrition Insert/Update Types
+// ============================================================================
+
+export type NutritionGoalInsert = Omit<NutritionGoal, 'id' | 'created_at' | 'updated_at'>;
+export type NutritionGoalUpdate = Partial<Omit<NutritionGoal, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
+
+export type FoodInsert = Omit<Food, 'id' | 'created_at' | 'updated_at'>;
+export type FoodUpdate = Partial<Omit<Food, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
+
+export type MealLogInsert = Omit<MealLog, 'id' | 'logged_at' | 'created_at' | 'updated_at'>;
+export type MealLogUpdate = Partial<Omit<MealLog, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
+
+export type MealLogItemInsert = Omit<MealLogItem, 'id' | 'created_at'>;
+
+export type MealTemplateInsert = Omit<MealTemplate, 'id' | 'use_count' | 'last_used_at' | 'created_at' | 'updated_at'>;
+export type MealTemplateUpdate = Partial<Omit<MealTemplate, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
+
+export type MealTemplateItemInsert = Omit<MealTemplateItem, 'id' | 'created_at'>;
+
+export type WaterLogInsert = Omit<WaterLog, 'id' | 'logged_at'>;
+
+export type DailyNutritionSummaryInsert = Omit<DailyNutritionSummary, 'id' | 'created_at' | 'updated_at'>;
+
+// ============================================================================
+// Nutrition Analytics Types
+// ============================================================================
+
+/**
+ * Macro Progress
+ * Current progress towards macro targets
+ */
+export interface MacroProgress {
+  protein: {
+    current: number;
+    target: number;
+    percentage: number;
+    remaining: number;
+  };
+  carbs: {
+    current: number;
+    target: number;
+    percentage: number;
+    remaining: number;
+  };
+  fats: {
+    current: number;
+    target: number;
+    percentage: number;
+    remaining: number;
+  };
+  calories: {
+    current: number;
+    target: number;
+    percentage: number;
+    remaining: number;
+  };
+}
+
+/**
+ * Weekly Nutrition Stats
+ * Aggregated nutrition stats for a week
+ */
+export interface WeeklyNutritionStats {
+  week_start: string; // ISO date
+  week_end: string; // ISO date
+  average_calories: number;
+  average_protein: number;
+  average_carbs: number;
+  average_fats: number;
+  average_water_ml: number;
+  days_logged: number;
+  days_hit_protein: number;
+  days_hit_calories: number;
+  days_hit_water: number;
+  compliance_score: number; // 0-100
+}
+
+/**
+ * Weight Correlation Data Point
+ * Data point for weight vs calories correlation
+ */
+export interface WeightCorrelationPoint {
+  date: string; // ISO date
+  weight_kg: number;
+  calories: number;
+  trend: 'gaining' | 'losing' | 'maintaining';
+}
+
+/**
+ * Weight Trend Analysis
+ * Analysis of weight trends and calorie intake
+ */
+export interface WeightTrendAnalysis {
+  current_trend: 'gaining' | 'losing' | 'maintaining';
+  weekly_change_kg: number;
+  average_daily_calories: number;
+  goal_alignment: 'on_track' | 'too_fast' | 'too_slow';
+  suggested_adjustment: number; // Calorie adjustment
+  message: string;
+}
+
+/**
+ * Macro Calculator Input
+ * Input for calculating macro targets
+ */
+export interface MacroCalculatorInput {
+  weight_kg: number;
+  height_cm: number;
+  age: number;
+  gender: 'male' | 'female' | 'other';
+  activity_level: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
+  goal_type: 'cut' | 'maintain' | 'bulk';
+}
+
+/**
+ * Macro Calculator Result
+ * Calculated macro targets
+ */
+export interface MacroCalculatorResult {
+  bmr: number; // Basal Metabolic Rate
+  tdee: number; // Total Daily Energy Expenditure
+  daily_calories: number;
+  daily_protein_g: number;
+  daily_carbs_g: number;
+  daily_fats_g: number;
+  daily_water_ml: number;
+  protein_per_kg: number;
+  explanation: string;
+}

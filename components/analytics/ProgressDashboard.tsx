@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { TrendingUp, Scale, Dumbbell, Trophy } from 'lucide-react';
+import { TrendingUp, Scale, Dumbbell, Trophy, Apple } from 'lucide-react';
 import StrengthGraphs from './StrengthGraphs';
 import BodyTracking from './BodyTracking';
 import VolumeAnalytics from './VolumeAnalytics';
 import AchievementsDashboard from './AchievementsDashboard';
+import NutritionStats from '@/components/nutrition/NutritionStats';
 
 export default function ProgressDashboard() {
   const [activeTab, setActiveTab] = useState('strength');
@@ -17,13 +18,13 @@ export default function ProgressDashboard() {
         <div>
           <h1 className="text-3xl font-bold">Progress Analytics</h1>
           <p className="text-muted-foreground">
-            Track your strength, body composition, and training volume
+            Track your strength, body composition, nutrition, and training volume
           </p>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[600px]">
+        <TabsList className="grid w-full grid-cols-5 lg:w-[750px]">
           <TabsTrigger value="strength" className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4" />
             <span className="hidden sm:inline">Strength</span>
@@ -31,6 +32,10 @@ export default function ProgressDashboard() {
           <TabsTrigger value="body" className="flex items-center gap-2">
             <Scale className="h-4 w-4" />
             <span className="hidden sm:inline">Body</span>
+          </TabsTrigger>
+          <TabsTrigger value="nutrition" className="flex items-center gap-2">
+            <Apple className="h-4 w-4" />
+            <span className="hidden sm:inline">Nutrition</span>
           </TabsTrigger>
           <TabsTrigger value="volume" className="flex items-center gap-2">
             <Dumbbell className="h-4 w-4" />
@@ -48,6 +53,10 @@ export default function ProgressDashboard() {
 
         <TabsContent value="body" className="mt-6">
           <BodyTracking />
+        </TabsContent>
+
+        <TabsContent value="nutrition" className="mt-6">
+          <NutritionStats />
         </TabsContent>
 
         <TabsContent value="volume" className="mt-6">
