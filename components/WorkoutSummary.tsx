@@ -11,6 +11,25 @@ import { motion } from 'framer-motion';
 import { X, Trophy, TrendingUp, Zap, Award, Calendar, Target } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import type { Workout } from '@/lib/types';
+import {
+  awardXp,
+  updateWorkoutStreak,
+  getAllAchievements,
+  getUserAchievementProgress,
+  updateAchievementProgress,
+} from '@/lib/gamification/service';
+import {
+  calculateSetXp,
+  calculateWorkoutXp,
+  calculatePrXp,
+} from '@/lib/gamification/xp-utils';
+import {
+  checkSessionAchievements,
+  AchievementCheckResult,
+} from '@/lib/gamification/achievement-utils';
+import { Achievement as GamificationAchievement } from '@/lib/gamification/types';
+import AchievementToast from './AchievementToast';
+import LevelUpModal from './LevelUpModal';
 
 interface SetWithExercise {
   exercise_id: string;
@@ -77,6 +96,19 @@ export default function WorkoutSummary({
   const [showConfetti, setShowConfetti] = useState(true);
   const supabase = createClient();
 
+  // Gamification state
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const [levelUpData, setLevelUpData] = useState<{
+    previousLevel: number;
+    newLevel: number;
+    title: string;
+    totalXp: number;
+  } | null>(null);
+  const [newAchievements, setNewAchievements] = useState<
+    GamificationAchievement[]
+  >([]);
+  const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
+
   useEffect(() => {
     const fetchSummaryData = async () => {
       setLoading(true);
@@ -110,15 +142,61 @@ export default function WorkoutSummary({
         const endTime = session.completed_at ? new Date(session.completed_at) : new Date();
         const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
 
-        // Calculate XP: 10 per set + 100 for completion + volume bonus
-        const xpEarned = totalSets * 10 + 100 + Math.floor(totalVolume / 100);
+        // Check for PRs
+        const prsFound = await checkForPRs(sets);
+
+        // Calculate XP using new gamification system
+        const exerciseNames = Array.from(new Set(sets.map(s => s.exercise?.name).filter(Boolean))) as string[];
+        let totalXp = 0;
+
+        // XP for sets
+        const setXp = sets.reduce((sum, set) => {
+          const exerciseName = set.exercise?.name || '';
+          return sum + calculateSetXp(exerciseName);
+        }, 0);
+        totalXp += setXp;
+
+        // XP for workout completion
+        const workoutXp = calculateWorkoutXp(totalSets, exerciseNames);
+        totalXp += workoutXp;
+
+        // XP for PRs
+        const prXp = prsFound.reduce((sum, pr) => {
+          const improvement = 5; // Simplified, could calculate actual improvement
+          return sum + calculatePrXp(pr.exerciseName, improvement);
+        }, 0);
+        totalXp += prXp;
+
+        // Award XP and check for level up
+        const xpResult = await awardXp(
+          session.user_id,
+          totalXp,
+          'workout_complete',
+          `Completed workout with ${totalSets} sets and ${Math.round(totalVolume)}kg volume`,
+          sessionId,
+          { totalSets, totalVolume, totalReps }
+        );
+
+        if (xpResult && xpResult.leveled_up) {
+          // Show level up modal
+          setLevelUpData({
+            previousLevel: xpResult.previous_level,
+            newLevel: xpResult.new_level,
+            title: 'Novice Lifter', // Will be updated from user_levels
+            totalXp: xpResult.new_total_xp,
+          });
+          setTimeout(() => setShowLevelUp(true), 1000);
+        }
+
+        // Update workout streak
+        const streakResult = await updateWorkoutStreak(session.user_id);
 
         setStats({
           totalVolume,
           totalSets,
           totalReps,
           duration: durationMinutes,
-          xpEarned,
+          xpEarned: totalXp,
         });
 
         // Update session with calculated stats
@@ -130,11 +208,8 @@ export default function WorkoutSummary({
           })
           .eq('id', sessionId);
 
-        // Check for PRs
-        await checkForPRs(sets);
-
-        // Check for achievements
-        await checkForAchievements(session.user_id, totalSets, totalVolume);
+        // Check for new achievements using gamification system
+        await checkForGamificationAchievements(session.user_id, sets, totalVolume, totalSets, totalReps, prsFound.length);
       }
 
       // Get next workout
@@ -159,7 +234,7 @@ export default function WorkoutSummary({
       setTimeout(() => setShowConfetti(false), 3000);
     };
 
-    const checkForPRs = async (sets: SetWithExercise[]) => {
+    const checkForPRs = async (sets: SetWithExercise[]): Promise<PersonalRecord[]> => {
       const exerciseMap = new Map<string, { weight: number; reps: number; name: string }>();
 
       // Find best set for each exercise in this session
@@ -205,77 +280,121 @@ export default function WorkoutSummary({
             reps: current.reps,
             isNew: true,
           });
+
+          // Award XP for PR
+          await awardXp(
+            session.user_id,
+            calculatePrXp(current.name, 5),
+            'pr_broken',
+            `New PR: ${current.name} - ${current.reps} reps @ ${current.weight}kg`,
+            sessionId,
+            { exercise: current.name, weight: current.weight, reps: current.reps }
+          );
         }
       }
 
       setPRs(newPRs);
+      return newPRs;
     };
 
-    const checkForAchievements = async (userId: string, totalSets: number, totalVolume: number) => {
-      const newAchievements: Achievement[] = [];
+    const checkForGamificationAchievements = async (
+      userId: string,
+      sets: SetWithExercise[],
+      totalVolume: number,
+      totalSets: number,
+      totalReps: number,
+      prCount: number
+    ) => {
+      try {
+        // Get all achievements and user's progress
+        const [allAchievements, userProgress, completedSessions, streakData] = await Promise.all([
+          getAllAchievements(),
+          getUserAchievementProgress(userId),
+          supabase
+            .from('workout_sessions')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('status', 'completed'),
+          supabase
+            .from('workout_streaks')
+            .select('current_streak')
+            .eq('user_id', userId)
+            .single()
+        ]);
 
-      // Get user's total completed sessions
-      const { data: completedSessions } = await supabase
-        .from('workout_sessions')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('status', 'completed');
+        const sessionCount = completedSessions?.data?.length || 0;
+        const currentStreak = streakData?.data?.current_streak || 0;
 
-      const sessionCount = completedSessions?.length || 0;
+        // Get workout hour
+        const workoutHour = new Date().getHours();
 
-      // Milestone achievements
-      if (sessionCount === 1) {
-        newAchievements.push({
-          title: 'First Workout Complete!',
-          description: 'You completed your first workout. The journey begins!',
-          icon: '🎉',
-        });
-      } else if (sessionCount === 10) {
-        newAchievements.push({
-          title: 'Dedicated Athlete',
-          description: 'Completed 10 workouts!',
-          icon: '💪',
-        });
-      } else if (sessionCount === 50) {
-        newAchievements.push({
-          title: 'Consistency Champion',
-          description: 'Completed 50 workouts!',
-          icon: '🏆',
-        });
-      }
-
-      // Volume achievements
-      if (totalVolume >= 10000) {
-        newAchievements.push({
-          title: 'Heavy Lifter',
-          description: 'Moved over 10,000kg in one session!',
-          icon: '🏋️',
-        });
-      }
-
-      // Set count achievements
-      if (totalSets >= 20) {
-        newAchievements.push({
-          title: 'High Volume Warrior',
-          description: 'Completed 20+ sets in one workout!',
-          icon: '⚡',
-        });
-      }
-
-      setAchievements(newAchievements);
-
-      // Save achievements to database
-      if (newAchievements.length > 0) {
-        await supabase.from('user_achievements').insert(
-          newAchievements.map((achievement) => ({
-            user_id: userId,
-            title: achievement.title,
-            description: achievement.description,
-            icon: achievement.icon,
-            category: 'milestone',
-            date_earned: new Date().toISOString(),
-          }))
+        // Prepare session data for achievement checking
+        const exercises = Array.from(
+          new Map(
+            sets.map((set) => [
+              set.exercise?.name || '',
+              {
+                name: set.exercise?.name || '',
+                maxWeight: set.weight_kg,
+              },
+            ])
+          ).values()
         );
+
+        const sessionData = {
+          exercises,
+          totalVolume,
+          setCount: sessionCount,
+          repCount: totalReps,
+          currentStreak,
+          workoutHour,
+          prCount,
+        };
+
+        // Check for newly unlocked achievements
+        const achievementResults = checkSessionAchievements(
+          allAchievements,
+          userProgress,
+          sessionData
+        );
+
+        const unlockedAchievements: GamificationAchievement[] = [];
+
+        // Update progress and award XP for unlocked achievements
+        for (const result of achievementResults) {
+          await updateAchievementProgress(
+            userId,
+            result.achievement.id,
+            result.progress,
+            result.unlocked
+          );
+
+          if (result.unlocked && !userProgress.find(p => p.achievement_id === result.achievement.id && p.is_unlocked)) {
+            unlockedAchievements.push(result.achievement);
+
+            // Award achievement XP
+            await awardXp(
+              userId,
+              result.achievement.xp_reward,
+              'achievement',
+              `Achievement unlocked: ${result.achievement.name}`,
+              sessionId,
+              { achievement_id: result.achievement.id, achievement_code: result.achievement.code }
+            );
+          }
+        }
+
+        setNewAchievements(unlockedAchievements);
+
+        // Also set legacy achievements for display
+        const legacyAchievements: Achievement[] = unlockedAchievements.map(a => ({
+          title: a.name,
+          description: a.description,
+          icon: a.icon || '🏆',
+        }));
+        setAchievements(legacyAchievements);
+      } catch (error) {
+        console.error('Error checking achievements:', error);
       }
     };
 
@@ -473,6 +592,35 @@ export default function WorkoutSummary({
           </div>
         </div>
       </motion.div>
+
+      {/* Level Up Modal */}
+      {levelUpData && (
+        <LevelUpModal
+          show={showLevelUp}
+          onClose={() => setShowLevelUp(false)}
+          previousLevel={levelUpData.previousLevel}
+          newLevel={levelUpData.newLevel}
+          title={levelUpData.title as any}
+          totalXp={levelUpData.totalXp}
+        />
+      )}
+
+      {/* Achievement Toasts */}
+      {newAchievements[currentAchievementIndex] && (
+        <AchievementToast
+          achievement={newAchievements[currentAchievementIndex]}
+          show={currentAchievementIndex < newAchievements.length}
+          onClose={() => {
+            if (currentAchievementIndex < newAchievements.length - 1) {
+              // Show next achievement after a delay
+              setTimeout(() => {
+                setCurrentAchievementIndex(currentAchievementIndex + 1);
+              }, 500);
+            }
+          }}
+          xpEarned={newAchievements[currentAchievementIndex].xp_reward}
+        />
+      )}
     </div>
   );
 }

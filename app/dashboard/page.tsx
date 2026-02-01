@@ -6,13 +6,24 @@
 
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
-import { Dumbbell, TrendingUp, Calendar, Award } from 'lucide-react';
+import { Dumbbell, TrendingUp, Calendar, Award, User } from 'lucide-react';
+import LevelBadge from '@/components/LevelBadge';
+import { getUserLevel } from '@/lib/gamification/service';
+import { UserLevel } from '@/lib/gamification/types';
 
 export default function DashboardPage() {
   const { user, profile, loading, signOut } = useAuth();
   const router = useRouter();
+  const [userLevel, setUserLevel] = useState<UserLevel | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      getUserLevel(user.id).then(setUserLevel);
+    }
+  }, [user]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -39,12 +50,38 @@ export default function DashboardPage() {
               </div>
               <h1 className="text-2xl font-bold text-gray-900">Iron Quest</h1>
             </div>
-            <button
-              onClick={handleSignOut}
-              className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700"
-            >
-              Sign Out
-            </button>
+
+            <div className="flex items-center gap-4">
+              {/* Level Badge */}
+              {userLevel && (
+                <LevelBadge
+                  level={userLevel.current_level}
+                  title={userLevel.title}
+                  currentXp={userLevel.total_xp}
+                  xpToNext={userLevel.xp_to_next_level}
+                  showProgress={false}
+                  size="md"
+                  onClick={() => router.push('/profile')}
+                />
+              )}
+
+              {/* Profile Button */}
+              <button
+                onClick={() => router.push('/profile')}
+                className="p-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                title="View Profile"
+              >
+                <User className="w-6 h-6" />
+              </button>
+
+              {/* Sign Out Button */}
+              <button
+                onClick={handleSignOut}
+                className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700"
+              >
+                Sign Out
+              </button>
+            </div>
           </div>
         </div>
       </header>
