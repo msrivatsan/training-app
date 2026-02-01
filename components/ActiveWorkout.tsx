@@ -7,13 +7,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, ArrowRight, Timer, Dumbbell, CheckCircle, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Timer, Dumbbell, CheckCircle, X, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import SetCard, { SetStatus } from './SetCard';
 import { calculateWeightSuggestion } from '@/lib/progression';
-import type { Exercise, Set } from '@/lib/types';
+import ExerciseSwapModal from './ExerciseSwapModal';
+import type { Exercise, Set, ExerciseLibraryWithMovementPattern } from '@/lib/types';
 
 interface ActiveWorkoutProps {
   sessionId: string;
@@ -50,6 +51,8 @@ export default function ActiveWorkout({
     totalTime: 0,
   });
   const [setStates, setSetStates] = useState<Record<number, SetStatus>>({});
+  const [swapModalOpen, setSwapModalOpen] = useState(false);
+  const [exerciseLibraryMap, setExerciseLibraryMap] = useState<Record<string, ExerciseLibraryWithMovementPattern>>({});
   const supabase = createClient();
 
   const currentExercise = exercises[currentExerciseIndex];
@@ -132,6 +135,19 @@ export default function ActiveWorkout({
       }));
 
       setExercises(exercisesWithSets);
+
+      // Load exercise library
+      const { data: libraryData } = await supabase
+        .from('exercise_library')
+        .select('*');
+
+      if (libraryData) {
+        const libraryMap: Record<string, ExerciseLibraryWithMovementPattern> = {};
+        libraryData.forEach((ex: any) => {
+          libraryMap[ex.id] = ex as ExerciseLibraryWithMovementPattern;
+        });
+        setExerciseLibraryMap(libraryMap);
+      }
 
       // Initialize set states
       const initialStates: Record<number, SetStatus> = {};
@@ -254,6 +270,52 @@ export default function ActiveWorkout({
     } catch (error) {
       console.error('Error saving set:', error);
       alert('Failed to save set. Please try again.');
+    }
+  };
+
+  // Handle exercise swap
+  const handleExerciseSwap = async (newExerciseLibrary: ExerciseLibraryWithMovementPattern) => {
+    if (!currentExercise) return;
+
+    try {
+      // Update exercise with new library reference
+      await supabase
+        .from('exercises')
+        .update({
+          exercise_library_id: newExerciseLibrary.id,
+          name: newExerciseLibrary.name,
+          muscle_groups: [
+            newExerciseLibrary.primary_muscle_group,
+            ...(newExerciseLibrary.secondary_muscle_groups || []),
+          ],
+          equipment: newExerciseLibrary.equipment_needed,
+          video_url: newExerciseLibrary.video_url,
+        })
+        .eq('id', currentExercise.id);
+
+      // Update local state
+      setExercises((prev) =>
+        prev.map((ex) =>
+          ex.id === currentExercise.id
+            ? {
+                ...ex,
+                exercise_library_id: newExerciseLibrary.id,
+                name: newExerciseLibrary.name,
+                muscle_groups: [
+                  newExerciseLibrary.primary_muscle_group,
+                  ...(newExerciseLibrary.secondary_muscle_groups || []),
+                ],
+                equipment: newExerciseLibrary.equipment_needed,
+                video_url: newExerciseLibrary.video_url,
+              }
+            : ex
+        )
+      );
+
+      setSwapModalOpen(false);
+    } catch (error) {
+      console.error('Error swapping exercise:', error);
+      alert('Failed to swap exercise. Please try again.');
     }
   };
 
@@ -405,7 +467,16 @@ export default function ActiveWorkout({
               <Dumbbell className="w-8 h-8 text-purple-600" />
             </div>
             <div className="flex-1">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">{currentExercise.name}</h1>
+              <div className="flex items-start justify-between mb-2">
+                <h1 className="text-2xl font-bold text-gray-900">{currentExercise.name}</h1>
+                <button
+                  onClick={() => setSwapModalOpen(true)}
+                  className="flex items-center gap-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors font-medium text-sm"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Swap Exercise
+                </button>
+              </div>
               {currentExercise.description && (
                 <p className="text-gray-600 mb-3">{currentExercise.description}</p>
               )}
@@ -515,6 +586,17 @@ export default function ActiveWorkout({
           </motion.div>
         )}
       </div>
+
+      {/* Exercise Swap Modal */}
+      {currentExercise?.exercise_library_id && exerciseLibraryMap[currentExercise.exercise_library_id] && (
+        <ExerciseSwapModal
+          exercise={exerciseLibraryMap[currentExercise.exercise_library_id]}
+          currentWeight={currentExercise.target_weight_kg || undefined}
+          isOpen={swapModalOpen}
+          onClose={() => setSwapModalOpen(false)}
+          onSwap={handleExerciseSwap}
+        />
+      )}
     </div>
   );
 }

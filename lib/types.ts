@@ -1170,3 +1170,219 @@ export interface MacroCalculatorResult {
   protein_per_kg: number;
   explanation: string;
 }
+
+// ============================================================================
+// EXERCISE SWAP AND CUSTOMIZATION SYSTEM
+// ============================================================================
+
+/**
+ * Movement Pattern Type
+ * Classification of exercise movement patterns for intelligent substitution
+ */
+export type MovementPatternType =
+  | 'horizontal_push'  // Bench Press, Push-ups, Dips
+  | 'vertical_push'    // OHP, Arnold Press
+  | 'horizontal_pull'  // Rows, Face Pulls
+  | 'vertical_pull'    // Pull-ups, Lat Pulldown
+  | 'squat_pattern'    // Back Squat, Front Squat, Leg Press
+  | 'hinge_pattern'    // Deadlift, RDL, Good Morning
+  | 'lunge_pattern'    // Lunges, Split Squats, Step-ups
+  | 'isolation_upper'  // Curls, Extensions, Raises
+  | 'isolation_lower'  // Leg Curls, Extensions, Calf Raises
+  | 'core_rotation'    // Russian Twists, Pallof Press
+  | 'core_stability'   // Planks, Dead Bugs
+  | 'core_flexion'     // Crunches, Leg Raises
+  | 'carry'            // Farmer's Walk, Suitcase Carry
+  | 'explosive'        // Box Jumps, Medicine Ball Slams
+  | 'olympic';         // Clean and Press, Thrusters
+
+/**
+ * Exercise Library with Movement Pattern
+ * Extended exercise library with movement pattern classification
+ */
+export interface ExerciseLibraryWithMovementPattern extends ExerciseLibrary {
+  movement_pattern: MovementPatternType | null;
+}
+
+/**
+ * Equipment Profile
+ * User's available equipment for filtering exercise substitutions
+ */
+export interface EquipmentProfile {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+  profile_name: string;
+  available_equipment: string[]; // e.g., ['barbell', 'dumbbells', 'bench']
+  is_active: boolean;
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+/**
+ * Exercise Note
+ * Per-exercise notes that carry over across all instances
+ */
+export interface ExerciseNote {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+  exercise_library_id: string; // UUID reference to exercise_library
+  note_text: string;
+  is_pinned: boolean;
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+/**
+ * Custom Workout Template
+ * Saved custom workout templates created by users
+ */
+export interface CustomWorkoutTemplate {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+  name: string;
+  description: string | null;
+  template_data: WorkoutTemplateData;
+  is_public: boolean;
+  use_count: number;
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+/**
+ * Workout Template Data
+ * Structure for custom workout template
+ */
+export interface WorkoutTemplateData {
+  exercises: WorkoutTemplateExercise[];
+  total_estimated_duration_minutes?: number;
+  difficulty_level?: 'beginner' | 'intermediate' | 'advanced';
+  target_muscle_groups?: string[];
+}
+
+/**
+ * Workout Template Exercise
+ * Exercise definition within a template
+ */
+export interface WorkoutTemplateExercise {
+  exercise_library_id: string;
+  exercise_name: string;
+  order_index: number;
+  target_sets: number;
+  target_reps: number;
+  rest_seconds: number;
+  notes?: string;
+}
+
+/**
+ * Exercise Swap History
+ * Track exercise swaps for analytics and suggestions
+ */
+export interface ExerciseSwapHistory {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+  workout_id: string | null; // UUID reference to workouts
+  original_exercise_id: string | null; // UUID reference to exercise_library
+  swapped_exercise_id: string; // UUID reference to exercise_library
+  reason: string | null; // Why the swap was made
+  created_at: string; // ISO timestamp
+}
+
+/**
+ * Exercise Alternative
+ * Suggested alternative exercise with compatibility score
+ */
+export interface ExerciseAlternative {
+  exercise_id: string;
+  exercise_name: string;
+  primary_muscle_group: string;
+  movement_pattern: MovementPatternType | null;
+  equipment_needed: string[];
+  difficulty_level: 'beginner' | 'intermediate' | 'advanced';
+  is_compound: boolean;
+  compatibility_score: number; // 0-100
+  swap_suggestion?: SwapSuggestion;
+}
+
+/**
+ * Swap Suggestion
+ * Smart suggestion when swapping exercises
+ */
+export interface SwapSuggestion {
+  type: 'weight_adjustment' | 'add_exercise' | 'volume_adjustment' | 'none';
+  message: string;
+  weight_multiplier?: number; // e.g., 1.3 for leg press (30% more than squat)
+  suggested_exercises?: string[]; // Additional exercises to add
+  volume_adjustment?: {
+    sets_delta: number;
+    reps_delta: number;
+  };
+}
+
+/**
+ * Exercise Note with Exercise
+ * Extended exercise note with exercise details
+ */
+export interface ExerciseNoteWithExercise extends ExerciseNote {
+  exercise?: ExerciseLibraryWithMovementPattern;
+}
+
+/**
+ * Custom Workout Template with Details
+ * Extended template with usage stats
+ */
+export interface CustomWorkoutTemplateWithDetails extends CustomWorkoutTemplate {
+  total_exercises: number;
+  estimated_duration_minutes: number;
+}
+
+// ============================================================================
+// Exercise Swap Insert/Update Types
+// ============================================================================
+
+export type EquipmentProfileInsert = Omit<EquipmentProfile, 'id' | 'created_at' | 'updated_at'>;
+export type EquipmentProfileUpdate = Partial<Omit<EquipmentProfile, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
+
+export type ExerciseNoteInsert = Omit<ExerciseNote, 'id' | 'created_at' | 'updated_at'>;
+export type ExerciseNoteUpdate = Partial<Omit<ExerciseNote, 'id' | 'user_id' | 'exercise_library_id' | 'created_at' | 'updated_at'>>;
+
+export type CustomWorkoutTemplateInsert = Omit<CustomWorkoutTemplate, 'id' | 'use_count' | 'created_at' | 'updated_at'>;
+export type CustomWorkoutTemplateUpdate = Partial<Omit<CustomWorkoutTemplate, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
+
+export type ExerciseSwapHistoryInsert = Omit<ExerciseSwapHistory, 'id' | 'created_at'>;
+
+// ============================================================================
+// Exercise Swap Utility Types
+// ============================================================================
+
+/**
+ * Exercise Swap Filter
+ * Criteria for filtering exercise alternatives
+ */
+export interface ExerciseSwapFilter {
+  same_movement_pattern?: boolean;
+  same_muscle_group?: boolean;
+  same_difficulty?: boolean;
+  available_equipment_only?: boolean;
+  compound_only?: boolean;
+  max_results?: number;
+}
+
+/**
+ * Exercise Swap Request
+ * Request to find alternative exercises
+ */
+export interface ExerciseSwapRequest {
+  exercise_id: string;
+  user_id?: string;
+  filter?: ExerciseSwapFilter;
+}
+
+/**
+ * Exercise Swap Response
+ * Response with alternative exercises
+ */
+export interface ExerciseSwapResponse {
+  original_exercise: ExerciseLibraryWithMovementPattern;
+  alternatives: ExerciseAlternative[];
+  user_equipment_profile?: EquipmentProfile;
+}
