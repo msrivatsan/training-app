@@ -1386,3 +1386,240 @@ export interface ExerciseSwapResponse {
   alternatives: ExerciseAlternative[];
   user_equipment_profile?: EquipmentProfile;
 }
+
+// ============================================================================
+// NOTIFICATION SYSTEM
+// ============================================================================
+
+/**
+ * Notification Type
+ * All possible notification types
+ */
+export type NotificationType =
+  | 'workout_reminder'
+  | 'rest_day_reminder'
+  | 'deload_week_alert'
+  | 'streak_milestone'
+  | 'achievement_unlocked'
+  | 'friend_activity'
+  | 'weekly_summary'
+  | 'friend_request'
+  | 'friend_accepted'
+  | 'post_like'
+  | 'post_comment'
+  | 'partner_request'
+  | 'workout_invite'
+  | 'challenge_complete';
+
+/**
+ * Notification Delivery Method
+ * How a notification should be delivered
+ */
+export type NotificationDeliveryMethod = 'push' | 'email' | 'sms' | 'in_app';
+
+/**
+ * Notification Preferences
+ * User preferences for notification settings
+ */
+export interface NotificationPreferences {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+
+  // Enable/disable each notification type
+  workout_reminder_enabled: boolean;
+  rest_day_reminder_enabled: boolean;
+  deload_week_alert_enabled: boolean;
+  streak_milestone_enabled: boolean;
+  achievement_unlocked_enabled: boolean;
+  friend_activity_enabled: boolean;
+  weekly_summary_enabled: boolean;
+
+  // Delivery methods
+  push_notifications_enabled: boolean;
+  email_notifications_enabled: boolean;
+  sms_notifications_enabled: boolean;
+
+  // Quiet hours (24-hour format)
+  quiet_hours_start: number; // 0-23
+  quiet_hours_end: number; // 0-23
+
+  // Reminder timing
+  reminder_minutes_before: number;
+
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+/**
+ * Notification
+ * Individual notification record
+ */
+export interface Notification {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+
+  // Notification details
+  type: NotificationType;
+  title: string;
+  message: string;
+  link: string | null; // Deep link to relevant page
+
+  // Metadata
+  metadata: Record<string, any> | null; // Additional data specific to notification type
+
+  // Status
+  read: boolean;
+  sent: boolean;
+  sent_at: string | null; // ISO timestamp
+  delivery_method: NotificationDeliveryMethod | null;
+
+  // Scheduling
+  scheduled_for: string | null; // ISO timestamp
+
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+/**
+ * User Activity Pattern
+ * Learn and store user's typical workout patterns for smart timing
+ */
+export interface UserActivityPattern {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+
+  // Day of week (0 = Sunday, 6 = Saturday)
+  day_of_week: number; // 0-6
+
+  // Typical workout time (24-hour format)
+  typical_hour: number | null; // 0-23
+
+  // Frequency (how often they work out on this day/time)
+  frequency_count: number;
+
+  // Last workout at this time
+  last_workout_at: string | null; // ISO timestamp
+
+  // Confidence score (0-100, higher = more consistent)
+  confidence_score: number; // 0-100
+
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+/**
+ * Weekly Summary Data
+ * Data for weekly summary notification/email
+ */
+export interface WeeklySummaryData {
+  user_id: string;
+  week_start: string; // ISO date
+  week_end: string; // ISO date
+
+  // Workout stats
+  workouts_completed: number;
+  total_volume_kg: number;
+  total_duration_minutes: number;
+
+  // Progress
+  personal_records: PersonalRecord[];
+  new_achievements: Achievement[];
+
+  // Streak
+  current_streak_days: number;
+
+  // Next week preview
+  scheduled_deload: boolean;
+  upcoming_milestones: MilestoneWithExercise[];
+
+  // Motivational message
+  motivational_message: string;
+}
+
+/**
+ * Notification Template
+ * Template for generating notifications
+ */
+export interface NotificationTemplate {
+  type: NotificationType;
+  title: string;
+  message: string;
+  link?: string;
+  metadata?: Record<string, any>;
+}
+
+/**
+ * Notification Schedule Request
+ * Request to schedule a notification
+ */
+export interface NotificationScheduleRequest {
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  link?: string;
+  metadata?: Record<string, any>;
+  scheduled_for?: string; // ISO timestamp
+  delivery_method?: NotificationDeliveryMethod;
+}
+
+/**
+ * Smart Timing Result
+ * Result from smart timing calculation
+ */
+export interface SmartTimingResult {
+  should_send: boolean;
+  scheduled_time: string | null; // ISO timestamp
+  reason: string;
+  confidence: number; // 0-100
+  pattern_used: UserActivityPattern | null;
+}
+
+/**
+ * Notification with User Info
+ * Extended notification with user details
+ */
+export interface NotificationWithUser extends Notification {
+  user?: UserProfile;
+}
+
+// ============================================================================
+// Notification Insert/Update Types
+// ============================================================================
+
+export type NotificationPreferencesInsert = Omit<NotificationPreferences, 'id' | 'created_at' | 'updated_at'>;
+export type NotificationPreferencesUpdate = Partial<Omit<NotificationPreferences, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
+
+export type NotificationInsert = Omit<Notification, 'id' | 'created_at' | 'updated_at'>;
+export type NotificationUpdate = Partial<Omit<Notification, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
+
+export type UserActivityPatternInsert = Omit<UserActivityPattern, 'id' | 'created_at' | 'updated_at'>;
+export type UserActivityPatternUpdate = Partial<Omit<UserActivityPattern, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
+
+// ============================================================================
+// Notification Analytics Types
+// ============================================================================
+
+/**
+ * Notification Analytics
+ * Analytics for notification engagement
+ */
+export interface NotificationAnalytics {
+  total_sent: number;
+  total_read: number;
+  read_rate: number; // Percentage
+  by_type: {
+    [key in NotificationType]?: {
+      sent: number;
+      read: number;
+      read_rate: number;
+    };
+  };
+  by_delivery_method: {
+    [key in NotificationDeliveryMethod]?: {
+      sent: number;
+      read: number;
+      read_rate: number;
+    };
+  };
+}

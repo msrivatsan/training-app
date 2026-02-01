@@ -685,6 +685,306 @@ INSERT INTO public.exercise_library (name, description, primary_muscle_group, se
   ('Bird Dog', 'Quadruped exercise extending opposite arm and leg', 'core', ARRAY['lower back', 'glutes'], ARRAY['bodyweight'], 'beginner', false, false, 'https://youtube.com/watch?v=wiFNA3sqjCA');
 
 -- ============================================================================
+-- NOTIFICATION PREFERENCES TABLE
+-- ============================================================================
+-- User preferences for notification settings
+
+CREATE TABLE IF NOT EXISTS public.notification_preferences (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE UNIQUE,
+
+  -- Enable/disable each notification type
+  workout_reminder_enabled BOOLEAN DEFAULT TRUE,
+  rest_day_reminder_enabled BOOLEAN DEFAULT TRUE,
+  deload_week_alert_enabled BOOLEAN DEFAULT TRUE,
+  streak_milestone_enabled BOOLEAN DEFAULT TRUE,
+  achievement_unlocked_enabled BOOLEAN DEFAULT TRUE,
+  friend_activity_enabled BOOLEAN DEFAULT FALSE,
+  weekly_summary_enabled BOOLEAN DEFAULT TRUE,
+
+  -- Delivery methods
+  push_notifications_enabled BOOLEAN DEFAULT TRUE,
+  email_notifications_enabled BOOLEAN DEFAULT FALSE,
+  sms_notifications_enabled BOOLEAN DEFAULT FALSE,
+
+  -- Quiet hours (24-hour format, e.g., 22 = 10pm, 7 = 7am)
+  quiet_hours_start INTEGER CHECK (quiet_hours_start >= 0 AND quiet_hours_start <= 23) DEFAULT 22,
+  quiet_hours_end INTEGER CHECK (quiet_hours_end >= 0 AND quiet_hours_end <= 23) DEFAULT 7,
+
+  -- Reminder timing (minutes before scheduled workout)
+  reminder_minutes_before INTEGER DEFAULT 30,
+
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE INDEX idx_notification_preferences_user_id ON public.notification_preferences(user_id);
+
+CREATE TRIGGER update_notification_preferences_updated_at
+  BEFORE UPDATE ON public.notification_preferences
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================================
+-- NOTIFICATIONS TABLE
+-- ============================================================================
+-- Store all notifications sent to users
+
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+
+  -- Notification type
+  type TEXT NOT NULL CHECK (type IN (
+    'workout_reminder',
+    'rest_day_reminder',
+    'deload_week_alert',
+    'streak_milestone',
+    'achievement_unlocked',
+    'friend_activity',
+    'weekly_summary',
+    'friend_request',
+    'friend_accepted',
+    'post_like',
+    'post_comment',
+    'partner_request',
+    'workout_invite',
+    'challenge_complete'
+  )),
+
+  -- Content
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  link TEXT, -- Deep link to relevant page
+
+  -- Metadata
+  metadata JSONB, -- Additional data specific to notification type
+
+  -- Status
+  read BOOLEAN DEFAULT FALSE,
+  sent BOOLEAN DEFAULT FALSE,
+  sent_at TIMESTAMPTZ,
+  delivery_method TEXT CHECK (delivery_method IN ('push', 'email', 'sms', 'in_app')),
+
+  -- Scheduling
+  scheduled_for TIMESTAMPTZ,
+
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE INDEX idx_notifications_user_id ON public.notifications(user_id);
+CREATE INDEX idx_notifications_type ON public.notifications(type);
+CREATE INDEX idx_notifications_read ON public.notifications(read);
+CREATE INDEX idx_notifications_sent ON public.notifications(sent);
+CREATE INDEX idx_notifications_scheduled_for ON public.notifications(scheduled_for);
+CREATE INDEX idx_notifications_created_at ON public.notifications(created_at DESC);
+
+CREATE TRIGGER update_notifications_updated_at
+  BEFORE UPDATE ON public.notifications
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================================
+-- USER ACTIVITY PATTERNS TABLE
+-- ============================================================================
+-- Learn and store user's typical workout patterns for smart timing
+
+CREATE TABLE IF NOT EXISTS public.user_activity_patterns (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+
+  -- Day of week (0 = Sunday, 6 = Saturday)
+  day_of_week INTEGER NOT NULL CHECK (day_of_week >= 0 AND day_of_week <= 6),
+
+  -- Typical workout time (24-hour format, stored as hour)
+  typical_hour INTEGER CHECK (typical_hour >= 0 AND typical_hour <= 23),
+
+  -- Frequency (how often they work out on this day/time)
+  frequency_count INTEGER DEFAULT 1,
+
+  -- Last workout at this time
+  last_workout_at TIMESTAMPTZ,
+
+  -- Confidence score (0-100, higher = more consistent)
+  confidence_score INTEGER DEFAULT 0 CHECK (confidence_score >= 0 AND confidence_score <= 100),
+
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+
+  UNIQUE(user_id, day_of_week)
+);
+
+CREATE INDEX idx_user_activity_patterns_user_id ON public.user_activity_patterns(user_id);
+CREATE INDEX idx_user_activity_patterns_day_of_week ON public.user_activity_patterns(day_of_week);
+CREATE INDEX idx_user_activity_patterns_confidence ON public.user_activity_patterns(confidence_score DESC);
+
+CREATE TRIGGER update_user_activity_patterns_updated_at
+  BEFORE UPDATE ON public.user_activity_patterns
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================================
+-- NOTIFICATION RLS POLICIES
+-- ============================================================================
+
+-- Notification Preferences table
+ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own notification preferences"
+  ON public.notification_preferences FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can create their own notification preferences"
+  ON public.notification_preferences FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own notification preferences"
+  ON public.notification_preferences FOR UPDATE
+  USING (auth.uid() = user_id);
+
+-- Notifications table
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own notifications"
+  ON public.notifications FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can create their own notifications"
+  ON public.notifications FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own notifications"
+  ON public.notifications FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own notifications"
+  ON public.notifications FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- User Activity Patterns table
+ALTER TABLE public.user_activity_patterns ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own activity patterns"
+  ON public.user_activity_patterns FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can create their own activity patterns"
+  ON public.user_activity_patterns FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own activity patterns"
+  ON public.user_activity_patterns FOR UPDATE
+  USING (auth.uid() = user_id);
+
+-- ============================================================================
+-- NOTIFICATION FUNCTIONS
+-- ============================================================================
+
+-- Function to automatically create default notification preferences for new users
+CREATE OR REPLACE FUNCTION public.create_default_notification_preferences()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.notification_preferences (user_id)
+  VALUES (NEW.id)
+  ON CONFLICT (user_id) DO NOTHING;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger to create notification preferences when user is created
+CREATE OR REPLACE TRIGGER on_user_created_notification_prefs
+  AFTER INSERT ON public.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.create_default_notification_preferences();
+
+-- Function to update user activity patterns when workout is completed
+CREATE OR REPLACE FUNCTION public.update_activity_pattern()
+RETURNS TRIGGER AS $$
+DECLARE
+  workout_day INTEGER;
+  workout_hour INTEGER;
+  existing_count INTEGER;
+BEGIN
+  -- Only process when workout is completed
+  IF NEW.status = 'completed' AND NEW.completed_at IS NOT NULL THEN
+    -- Extract day of week and hour
+    workout_day := EXTRACT(DOW FROM NEW.completed_at);
+    workout_hour := EXTRACT(HOUR FROM NEW.completed_at);
+
+    -- Update or insert activity pattern
+    INSERT INTO public.user_activity_patterns (
+      user_id,
+      day_of_week,
+      typical_hour,
+      frequency_count,
+      last_workout_at,
+      confidence_score
+    )
+    VALUES (
+      NEW.user_id,
+      workout_day,
+      workout_hour,
+      1,
+      NEW.completed_at,
+      20 -- Starting confidence
+    )
+    ON CONFLICT (user_id, day_of_week)
+    DO UPDATE SET
+      typical_hour = workout_hour,
+      frequency_count = user_activity_patterns.frequency_count + 1,
+      last_workout_at = NEW.completed_at,
+      confidence_score = LEAST(100, user_activity_patterns.confidence_score + 10),
+      updated_at = NOW();
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to update activity patterns on workout completion
+CREATE TRIGGER update_activity_pattern_on_workout_complete
+  AFTER UPDATE ON public.workout_sessions
+  FOR EACH ROW
+  WHEN (NEW.status = 'completed' AND OLD.status != 'completed')
+  EXECUTE FUNCTION public.update_activity_pattern();
+
+-- Function to check if current time is within quiet hours
+CREATE OR REPLACE FUNCTION public.is_in_quiet_hours(
+  p_user_id UUID,
+  p_check_time TIMESTAMPTZ DEFAULT NOW()
+)
+RETURNS BOOLEAN AS $$
+DECLARE
+  v_quiet_start INTEGER;
+  v_quiet_end INTEGER;
+  v_current_hour INTEGER;
+BEGIN
+  -- Get user's quiet hours settings
+  SELECT quiet_hours_start, quiet_hours_end
+  INTO v_quiet_start, v_quiet_end
+  FROM public.notification_preferences
+  WHERE user_id = p_user_id;
+
+  -- If no preferences found, default to not in quiet hours
+  IF v_quiet_start IS NULL THEN
+    RETURN FALSE;
+  END IF;
+
+  -- Get current hour in user's timezone (simplified - uses server time)
+  v_current_hour := EXTRACT(HOUR FROM p_check_time);
+
+  -- Check if current hour is in quiet hours range
+  -- Handle wrap-around (e.g., 22:00 to 07:00)
+  IF v_quiet_start <= v_quiet_end THEN
+    RETURN v_current_hour >= v_quiet_start AND v_current_hour < v_quiet_end;
+  ELSE
+    RETURN v_current_hour >= v_quiet_start OR v_current_hour < v_quiet_end;
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
 -- SAMPLE DATA (Optional - for testing)
 -- ============================================================================
 -- Uncomment to insert sample data
