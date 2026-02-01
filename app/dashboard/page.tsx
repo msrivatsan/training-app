@@ -169,7 +169,10 @@ export default function DashboardPage() {
                 View Programs
               </p>
             </button>
-            <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-600 hover:bg-purple-50 transition-colors">
+            <button
+              onClick={() => router.push('/analytics')}
+              className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-600 hover:bg-purple-50 transition-colors"
+            >
               <TrendingUp className="w-8 h-8 text-purple-600 mx-auto mb-2" />
               <p className="text-sm font-medium text-gray-900">
                 Track Progress
