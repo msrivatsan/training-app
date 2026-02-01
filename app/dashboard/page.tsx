@@ -115,7 +115,7 @@ export default function DashboardPage() {
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <button
-              onClick={() => router.push('/exercises')}
+              onClick={() => router.push('/workout')}
               className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-600 hover:bg-purple-50 transition-colors"
             >
               <Dumbbell className="w-8 h-8 text-purple-600 mx-auto mb-2" />
