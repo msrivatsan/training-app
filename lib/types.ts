@@ -461,3 +461,232 @@ export type ExerciseUpdate = Partial<Omit<Exercise, 'id' | 'workout_id' | 'creat
 export type WorkoutSessionUpdate = Partial<Omit<WorkoutSession, 'id' | 'created_at' | 'updated_at'>>;
 export type SetUpdate = Partial<Omit<Set, 'id' | 'session_id' | 'created_at' | 'updated_at'>>;
 export type BodyMeasurementUpdate = Partial<Omit<BodyMeasurement, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
+
+// ============================================================================
+// Intelligent Progression System Types
+// ============================================================================
+
+/**
+ * Progression History
+ * Tracks weight progression over time for each exercise
+ */
+export interface ProgressionHistory {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+  exercise_library_id: string; // UUID reference to exercise_library
+  session_id: string | null; // UUID reference to workout_sessions
+  previous_weight_kg: number | null;
+  new_weight_kg: number;
+  weight_change_kg: number; // Can be negative for deloads
+  progression_reason: 'hit_top_range' | 'consistency' | 'deload' | 'fatigue' | 'form_breakdown' | 'manual';
+  notes: string | null;
+  created_at: string; // ISO timestamp
+}
+
+/**
+ * Deload Schedule
+ * Manages deload week scheduling and tracking
+ */
+export interface DeloadSchedule {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+  program_id: string | null; // UUID reference to programs
+  scheduled_week_start: string; // ISO date string
+  scheduled_week_end: string; // ISO date string
+  status: 'upcoming' | 'notified' | 'active' | 'completed' | 'skipped';
+  volume_reduction_percent: number; // 20-60%
+  trigger_reason: 'scheduled' | 'high_rpe' | 'fatigue' | 'manual';
+  notified_at: string | null; // ISO timestamp
+  started_at: string | null; // ISO timestamp
+  completed_at: string | null; // ISO timestamp
+  notes: string | null;
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+/**
+ * Periodization Phase
+ * Defines training mesocycles with specific parameters
+ */
+export interface PeriodizationPhase {
+  id: string; // UUID
+  program_id: string; // UUID reference to programs
+  phase_type: 'hypertrophy' | 'strength' | 'peak' | 'deload';
+  phase_order: number; // 1, 2, 3, etc.
+  start_week: number;
+  end_week: number;
+  target_rep_min: number;
+  target_rep_max: number;
+  intensity_percent_min: number; // % of 1RM
+  intensity_percent_max: number; // % of 1RM
+  target_sets_per_exercise: number;
+  rest_seconds_compounds: number;
+  rest_seconds_accessories: number;
+  description: string | null;
+  is_active: boolean;
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+/**
+ * Performance Prediction
+ * Stores 1RM predictions and milestone forecasts
+ */
+export interface PerformancePrediction {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+  exercise_library_id: string; // UUID reference to exercise_library
+  predicted_1rm_kg: number;
+  confidence_score: number; // 0.0 to 1.0
+  based_on_sessions: number; // Number of recent sessions used
+  prediction_method: 'epley' | 'brzycki' | 'lombardi' | 'weighted_average';
+  created_at: string; // ISO timestamp
+  valid_until: string; // ISO timestamp - predictions expire
+}
+
+/**
+ * Milestone Tracking
+ * Tracks user-defined weight milestones and predicted achievement dates
+ */
+export interface MilestoneTracking {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+  exercise_library_id: string; // UUID reference to exercise_library
+  target_weight_kg: number;
+  target_reps: number;
+  current_estimated_1rm_kg: number | null;
+  predicted_achievement_date: string | null; // ISO date string
+  weeks_to_achievement: number | null;
+  achievement_probability: number | null; // 0.0 to 1.0
+  status: 'in_progress' | 'achieved' | 'abandoned';
+  achieved_at: string | null; // ISO timestamp
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+/**
+ * RPE Weekly Average
+ * Aggregate RPE data for auto-regulation
+ */
+export interface RpeWeeklyAverage {
+  id: string; // UUID
+  user_id: string; // UUID reference to users
+  week_start_date: string; // ISO date string
+  week_end_date: string; // ISO date string
+  average_rpe: number;
+  sessions_count: number;
+  sets_count: number;
+  auto_regulation_recommendation: 'maintain' | 'increase_weight' | 'deload_suggested' | 'take_rest' | null;
+  created_at: string; // ISO timestamp
+}
+
+// ============================================================================
+// Progression System Extended Types
+// ============================================================================
+
+/**
+ * Progression Insight
+ * Motivational insights based on progression data
+ */
+export interface ProgressionInsight {
+  type: 'weight_gain' | 'strength_increase' | 'milestone_upcoming' | 'pr_potential' | 'consistency';
+  exercise_name: string;
+  exercise_id: string;
+  message: string;
+  prediction?: {
+    weight_kg?: number;
+    timeframe?: string;
+    confidence?: number;
+  };
+  action?: string;
+}
+
+/**
+ * Auto Regulation Recommendation
+ * Recommendations based on RPE tracking
+ */
+export interface AutoRegulationRecommendation {
+  exercise_id: string;
+  exercise_name: string;
+  current_average_rpe: number;
+  recommendation: 'maintain' | 'increase_weight' | 'deload_suggested' | 'take_rest';
+  suggested_weight_change_kg?: number;
+  reasoning: string;
+}
+
+/**
+ * Strength Curve Data
+ * Data point for strength progression visualization
+ */
+export interface StrengthCurvePoint {
+  date: string; // ISO date string
+  estimated_1rm_kg: number;
+  actual_weight_kg?: number;
+  reps?: number;
+  confidence?: number;
+}
+
+/**
+ * Milestone with Exercise Info
+ * Extended milestone with exercise details
+ */
+export interface MilestoneWithExercise extends MilestoneTracking {
+  exercise?: ExerciseLibrary;
+}
+
+/**
+ * Deload with Program Info
+ * Extended deload schedule with program details
+ */
+export interface DeloadWithProgram extends DeloadSchedule {
+  program?: Program;
+}
+
+/**
+ * Periodization Phase with Program
+ * Extended phase with program details
+ */
+export interface PeriodizationPhaseWithProgram extends PeriodizationPhase {
+  program?: Program;
+}
+
+// ============================================================================
+// Progression System Insert/Update Types
+// ============================================================================
+
+export type ProgressionHistoryInsert = Omit<ProgressionHistory, 'id' | 'created_at'>;
+export type DeloadScheduleInsert = Omit<DeloadSchedule, 'id' | 'created_at' | 'updated_at'>;
+export type PeriodizationPhaseInsert = Omit<PeriodizationPhase, 'id' | 'created_at' | 'updated_at'>;
+export type PerformancePredictionInsert = Omit<PerformancePrediction, 'id' | 'created_at'>;
+export type MilestoneTrackingInsert = Omit<MilestoneTracking, 'id' | 'created_at' | 'updated_at'>;
+export type RpeWeeklyAverageInsert = Omit<RpeWeeklyAverage, 'id' | 'created_at'>;
+
+export type DeloadScheduleUpdate = Partial<Omit<DeloadSchedule, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
+export type PeriodizationPhaseUpdate = Partial<Omit<PeriodizationPhase, 'id' | 'program_id' | 'created_at' | 'updated_at'>>;
+export type MilestoneTrackingUpdate = Partial<Omit<MilestoneTracking, 'id' | 'user_id' | 'exercise_library_id' | 'created_at' | 'updated_at'>>;
+
+// ============================================================================
+// Periodization Generator Types
+// ============================================================================
+
+/**
+ * Periodization Template Input
+ * Configuration for generating periodization phases
+ */
+export interface PeriodizationConfig {
+  program_length_weeks: 4 | 8 | 12 | 16;
+  program_type?: 'strength' | 'hypertrophy' | 'powerlifting' | 'general';
+  include_deload?: boolean;
+  custom_phases?: Partial<PeriodizationPhase>[];
+}
+
+/**
+ * Generated Periodization Plan
+ * Output from periodization generator
+ */
+export interface GeneratedPeriodizationPlan {
+  total_weeks: number;
+  phases: PeriodizationPhaseInsert[];
+  description: string;
+  recommended_for: string[];
+}

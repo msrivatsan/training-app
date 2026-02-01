@@ -22,9 +22,11 @@ interface SetCardProps {
   status: SetStatus;
   completedReps?: number;
   completedWeight?: number;
-  onComplete: (weight: number, reps: number) => void;
+  completedRpe?: number;
+  onComplete: (weight: number, reps: number, rpe?: number) => void;
   onFail?: () => void;
   isWarmup?: boolean;
+  enableRpe?: boolean;
 }
 
 export default function SetCard({
@@ -37,12 +39,16 @@ export default function SetCard({
   status,
   completedReps,
   completedWeight,
+  completedRpe,
   onComplete,
   onFail,
   isWarmup = false,
+  enableRpe = true,
 }: SetCardProps) {
   const [weight, setWeight] = useState(suggestedWeight || targetWeight || previousWeight || 0);
   const [reps, setReps] = useState(targetReps);
+  const [rpe, setRpe] = useState<number | null>(completedRpe || null);
+  const [showRpeInput, setShowRpeInput] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
@@ -58,6 +64,26 @@ export default function SetCard({
       navigator.vibrate(50);
     }
 
+    // Show RPE input if enabled and not warmup
+    if (enableRpe && !isWarmup) {
+      setShowRpeInput(true);
+    } else {
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 1000);
+      onComplete(weight, reps);
+    }
+  };
+
+  const handleRpeComplete = (selectedRpe: number) => {
+    setRpe(selectedRpe);
+    setShowRpeInput(false);
+    setShowSuccess(true);
+    setTimeout(() => setShowSuccess(false), 1000);
+    onComplete(weight, reps, selectedRpe);
+  };
+
+  const handleSkipRpe = () => {
+    setShowRpeInput(false);
     setShowSuccess(true);
     setTimeout(() => setShowSuccess(false), 1000);
     onComplete(weight, reps);
@@ -280,14 +306,53 @@ export default function SetCard({
         </div>
       )}
 
+      {/* RPE Input Modal */}
+      {showRpeInput && (
+        <div className="mb-4 p-4 bg-indigo-50 rounded-lg border-2 border-indigo-300">
+          <p className="text-sm font-semibold text-gray-900 mb-3">
+            How hard was that set? (Optional)
+          </p>
+
+          <div className="grid grid-cols-5 gap-2 mb-3">
+            {[6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10].map((rpeValue) => (
+              <button
+                key={rpeValue}
+                onClick={() => handleRpeComplete(rpeValue)}
+                className={`py-2 px-1 rounded-lg font-semibold text-sm transition-all hover:scale-105 ${
+                  getRpeButtonColor(rpeValue)
+                }`}
+              >
+                {rpeValue}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={handleSkipRpe}
+            className="w-full text-xs text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            Skip RPE
+          </button>
+        </div>
+      )}
+
       {/* Completed Info */}
       {status === 'completed' && (
         <div className="text-center p-3 bg-green-100 rounded-lg">
           <p className="text-sm font-semibold text-green-800">
             ✓ {completedReps || reps} reps @ {completedWeight || weight}kg
+            {completedRpe && <span className="ml-2">• RPE {completedRpe}</span>}
           </p>
         </div>
       )}
     </motion.div>
   );
+}
+
+function getRpeButtonColor(rpe: number): string {
+  if (rpe >= 9.5) return 'bg-red-500 text-white hover:bg-red-600';
+  if (rpe >= 9) return 'bg-orange-500 text-white hover:bg-orange-600';
+  if (rpe >= 8) return 'bg-yellow-500 text-white hover:bg-yellow-600';
+  if (rpe >= 7) return 'bg-green-500 text-white hover:bg-green-600';
+  return 'bg-blue-500 text-white hover:bg-blue-600';
 }

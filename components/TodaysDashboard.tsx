@@ -12,6 +12,8 @@ import { Calendar, Zap, Flame, TrendingUp, Play } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import type { Workout, Exercise } from '@/lib/types';
+import ProgressionInsights from './ProgressionInsights';
+import DeloadBadge from './DeloadBadge';
 
 interface TodaysDashboardProps {
   onStartWorkout?: (workoutId: string, programId: string) => void;
@@ -218,6 +220,11 @@ export default function TodaysDashboard({ onStartWorkout }: TodaysDashboardProps
 
   return (
     <div className="space-y-6">
+      {/* Deload Badge */}
+      {user && todaysWorkout && (
+        <DeloadBadge userId={user.id} programId={todaysWorkout.program_id} />
+      )}
+
       {/* Today's Workout Card */}
       <div className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-xl shadow-lg p-8 text-white">
         <div className="flex items-start justify-between mb-6">
@@ -298,6 +305,9 @@ export default function TodaysDashboard({ onStartWorkout }: TodaysDashboardProps
           </div>
         </div>
       </div>
+
+      {/* Progression Insights */}
+      {user && <ProgressionInsights userId={user.id} limit={3} />}
 
       {/* Exercise List Preview */}
       <div className="bg-white rounded-xl shadow-md p-6">
