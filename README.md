@@ -1,4 +1,4 @@
-# Iron Quest - Workout Tracker App
+Gamified Workout Tracker App
 
 A modern, full-stack workout tracking application built with Next.js 14, TypeScript, Tailwind CSS, and Supabase.
 
